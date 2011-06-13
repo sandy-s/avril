@@ -50,7 +50,7 @@ REMOVE         = rm -f
 CAT            = cat
 
 CPPFLAGS      = -mmcu=$(MCU) -DF_CPU=$(F_CPU) -I. \
-			-g -Os -w -Wall \
+			-g -Os -Wall \
 			-ffunction-sections -fdata-sections -D$(MCU_DEFINE) \
 			-DSERIAL_RX_0 $(EXTRA_DEFINES) -fno-move-loop-invariants \
 			-mcall-prologues
