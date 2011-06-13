@@ -153,7 +153,7 @@ struct DummyGpio {
   static void set_mode(uint8_t mode) { }
   static void set_value(uint8_t value) { }
   static void set_analog_value(uint8_t value) { }
-  static uint8_t value() { }
+  static uint8_t value() { return 0; }
 };
 
 

@@ -147,6 +147,7 @@ struct SerialOutput : public Output {
     if (v >= 0) {
       Overwrite(v);
     }
+    return v;
   }
 };
 
@@ -291,4 +292,4 @@ typedef SerialPort<
 
 }  // namespace avrlib
 
-#endif AVRLIB_SERIAL_H_
+#endif // AVRLIB_SERIAL_H_

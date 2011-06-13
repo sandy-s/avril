@@ -25,7 +25,7 @@
 namespace avrlib {
 
 uint32_t milliseconds();
-uint32_t Delay(uint32_t delay);
+void Delay(uint32_t delay);
 
 void InitClock();
 

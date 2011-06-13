@@ -27,7 +27,7 @@ namespace avrlib {
 volatile LongWord timer0_milliseconds = { 0 };
 uint8_t timer0_fractional = 0;
 
-uint32_t Delay(uint32_t delay) {
+void Delay(uint32_t delay) {
   uint32_t t = milliseconds() + delay;
   while (milliseconds() < t);
 }
