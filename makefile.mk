@@ -21,9 +21,9 @@ BUILD_ROOT     = build/
 BUILD_DIR      = $(BUILD_ROOT)$(TARGET)/
 PROGRAMMER     = avrispmkII
 
-MCU            = atmega$(MCU_NAME)p
-DMCU           = m$(MCU_NAME)p
-MCU_DEFINE     = ATMEGA$(MCU_NAME)P
+MCU            = $(MCU_NAME)
+DMCU           = $(subst atmega, m, $(MCU_NAME))
+MCU_DEFINE     = $(shell echo $(MCU_NAME) | tr a-z A-Z)
 F_CPU          = 20000000
 
 VPATH          = $(PACKAGES)
