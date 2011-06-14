@@ -272,10 +272,6 @@ typedef Gpio<PortD, 0> UartSpiRX;
 #define HAS_TIMER3
 #endif
 
-#else
-
-#error Unsupported MCU type
-
 #endif
 
 // Two specializations of the numbered pin template, one which clears the timer
