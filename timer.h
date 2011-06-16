@@ -30,24 +30,41 @@
 
 namespace avrlib {
 
+SpecialFunctionRegister(TCNT0);
 SpecialFunctionRegister(TCCR0A);
 SpecialFunctionRegister(TCCR0B);
-SpecialFunctionRegister(TCCR1A);
-SpecialFunctionRegister(TCCR1B);
-SpecialFunctionRegister(TCCR2A);
-SpecialFunctionRegister(TCCR2B);
-SpecialFunctionRegister(TIMSK0);
-SpecialFunctionRegister(TIMSK1);
-SpecialFunctionRegister(TIMSK2);
-SpecialFunctionRegister(TCNT0);
-SpecialFunctionRegister(TCNT1);
-SpecialFunctionRegister(TCNT2);
 SpecialFunctionRegister(OCR0A);
 SpecialFunctionRegister(OCR0B);
+#ifdef TIMSK0
+SpecialFunctionRegister(TIMSK0);
+#else
+SpecialFunctionRegister(TIMSK);
+#endif
+
+SpecialFunctionRegister(TCNT1);
+#ifdef TCCR1A
+SpecialFunctionRegister(TCCR1A);
+#endif
+#ifdef TCCR1B
+SpecialFunctionRegister(TCCR1B);
+#endif
+#ifdef TCCR1
+SpecialFunctionRegister(TCCR1);
+#endif
 SpecialFunctionRegister(OCR1A);
 SpecialFunctionRegister(OCR1B);
+#ifdef TIMSK1
+SpecialFunctionRegister(TIMSK1);
+#endif
+
+#ifdef TCNT2
+SpecialFunctionRegister(TCNT2);
+SpecialFunctionRegister(TCCR2A);
+SpecialFunctionRegister(TCCR2B);
 SpecialFunctionRegister(OCR2A);
 SpecialFunctionRegister(OCR2B);
+SpecialFunctionRegister(TIMSK2);
+#endif
 
 #ifdef HAS_TIMER3
 SpecialFunctionRegister(TCCR3A);
@@ -65,70 +82,114 @@ enum TimerMode {
   TIMER_FAST_PWM = 3,
 };
 
-template<typename StatusRegisterA,
-         typename StatusRegisterB,
-         typename ModeRegister,
+template<typename ControlRegisterA,
+         typename ControlRegisterB,
+         typename InterruptMaskRegister,
+         uint8_t InterruptMask,
          typename ValueRegister>
 struct TimerImpl {
-  typedef StatusRegisterA A;
-  typedef StatusRegisterB B;
+    static inline uint8_t value() {
+      return *ValueRegister::ptr();
+    }
+    static inline void Start() {
+      *InterruptMaskRegister::ptr() |= InterruptMask;
+    }
+    static inline void Stop() {
+      *InterruptMaskRegister::ptr() &= ~InterruptMask;
+    }
+    static inline void set_mode(TimerMode mode) {
+      *ControlRegisterA::ptr() = (*ControlRegisterA::ptr() & 0xfc) | mode;
+    }
 
-  static inline uint8_t value() {
-    return *ValueRegister::ptr();
-  }
+    // These are the values for MCUs clocked at 20 MHz
+    //
+    // Timer speed
+    // value | fast        | accurate
+    // --------------------------------------
+    // 1     | 78.125 kHz  | 39.062 kHz
+    // 2     | 9.765 kHz   | 4.882 kHz
+    // 3     | 1220.7 Hz   | 610.3 Hz
+    // 4     | 305.2 Hz    | 152.6 Hz
+    // 5     | 76.3 Hz     | 38.1 Hz
+    static inline void set_prescaler(uint8_t prescaler) {
+      *ControlRegisterB::ptr() = (*ControlRegisterB::ptr() & 0xf8) | prescaler;
+    }
+};
 
-  static inline void Start() {
-    *ModeRegister::ptr() |= 1;
-  }
-  static inline void Stop() {
-    *ModeRegister::ptr() &= ~1;
-  }
-  static inline void set_mode(TimerMode mode) {
-    // Sets the mode registers.
-    *StatusRegisterA::ptr() = (*StatusRegisterA::ptr() & 0xfc) | mode;
-  }
-
-  // These are the values for MCUs clocked at 20 MHz
-  // 
-  // Timer speed
-  // value | fast        | accurate
-  // --------------------------------------
-  // 1     | 78.125 kHz  | 39.062 kHz
-  // 2     | 9.765 kHz   | 4.882 kHz
-  // 3     | 1220.7 Hz   | 610.3 Hz
-  // 4     | 305.2 Hz    | 152.6 Hz
-  // 5     | 76.3 Hz     | 38.1 Hz
-  static inline void set_prescaler(uint8_t prescaler) {
-    *StatusRegisterB::ptr() = (*StatusRegisterB::ptr() & 0xf8) | prescaler;
-  }
+template<typename ControlRegister,
+         typename InterruptMaskRegister,
+         uint8_t InterruptMask,
+         typename ValueRegister>
+struct TimerWithPrescalerImpl {
+    static inline uint8_t value() {
+      return *ValueRegister::ptr();
+    }
+    static inline void Start() {
+      *InterruptMaskRegister::ptr() |= InterruptMask;
+    }
+    static inline void Stop() {
+      *InterruptMaskRegister::ptr() &= ~InterruptMask;
+    }
+    static inline void set_mode(uint8_t mode) {
+      *ControlRegister::ptr() = (*ControlRegister::ptr() & 0x0f) | mode;
+    }
+    static inline void set_prescaler(uint8_t prescaler) {
+      *ControlRegister::ptr() = (*ControlRegister::ptr() & 0xf0) | prescaler;
+    }
 };
 
 template<int n>
 struct NumberedTimer { };
 
+#ifdef TIMSK0
 template<> struct NumberedTimer<0> {
   typedef TimerImpl<
       TCCR0ARegister,
       TCCR0BRegister,
       TIMSK0Register,
+      1,
       TCNT0Register> Impl;
 };
+#else // timers 0 and 1 share TMSK register (ATtiny25/45/85)
+template<> struct NumberedTimer<0> {
+  typedef TimerImpl<
+      TCCR0ARegister,
+      TCCR0BRegister,
+      TIMSKRegister,
+      2,
+      TCNT0Register> Impl;
+};
+#endif
 
+#ifdef TIMSK1
 template<> struct NumberedTimer<1> {
   typedef TimerImpl<
       TCCR1ARegister,
       TCCR1BRegister,
       TIMSK1Register,
+      1,
       TCNT1Register> Impl;
 };
+#else // high speed timer with separate prescaler (ATtiny25/45/85)
+template<> struct NumberedTimer<1> {
+  typedef TimerWithPrescalerImpl<
+      TCCR1Register,
+      TIMSKRegister,
+      4,
+      TCNT1Register> Impl;
+};
+#endif
 
+#ifdef TCNT2
 template<> struct NumberedTimer<2> {
   typedef TimerImpl<
       TCCR2ARegister,
       TCCR2BRegister,
       TIMSK2Register,
+      1,
       TCNT2Register> Impl;
 };
+#endif
 
 #ifdef HAS_TIMER3
 template<> struct NumberedTimer<3> {
@@ -136,6 +197,7 @@ template<> struct NumberedTimer<3> {
       TCCR3ARegister,
       TCCR3BRegister,
       TIMSK3Register,
+      1,
       TCNT3Register> Impl;
 };
 #endif  // HAS_TIMER3
@@ -182,8 +244,12 @@ typedef PwmChannel<Timer<0>, COM0A1, OCR0ARegister> PwmChannel0A;
 typedef PwmChannel<Timer<0>, COM0B1, OCR0BRegister> PwmChannel0B;
 typedef PwmChannel<Timer<1>, COM1A1, OCR1ARegister> PwmChannel1A;
 typedef PwmChannel<Timer<1>, COM1B1, OCR1BRegister> PwmChannel1B;
+#ifdef COM2A1
 typedef PwmChannel<Timer<2>, COM2A1, OCR2ARegister> PwmChannel2A;
+#endif
+#ifdef COM2B1
 typedef PwmChannel<Timer<2>, COM2B1, OCR2BRegister> PwmChannel2B;
+#endif
 
 // Readable aliases for timer interrupts.
 #define TIMER_0_TICK ISR(TIMER0_OVF_vect)

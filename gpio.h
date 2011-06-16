@@ -45,16 +45,28 @@ enum PinMode {
 
 // All the registers used in the following definitions are wrapped here.
 IORegister(DDRB);
+#ifdef DDRC
 IORegister(DDRC);
+#endif
+#ifdef DDRD
 IORegister(DDRD);
+#endif
 
 IORegister(PORTB);
+#ifdef PORTC
 IORegister(PORTC);
+#endif
+#ifdef PORTD
 IORegister(PORTD);
+#endif
 
 IORegister(PINB);
+#ifdef PINC
 IORegister(PINC);
+#endif
+#ifdef PIND
 IORegister(PIND);
+#endif
 
 // Represents a i/o port, which has input, output and mode registers.
 template<typename InputRegister, typename OutputRegister,
@@ -67,8 +79,12 @@ struct Port {
 
 // Definition of I/O ports.
 typedef Port<PINBRegister, PORTBRegister, DDRBRegister> PortB;
+#ifdef DDRC
 typedef Port<PINCRegister, PORTCRegister, DDRCRegister> PortC;
+#endif
+#ifdef DDRD
 typedef Port<PINDRegister, PORTDRegister, DDRDRegister> PortD;
+#endif
 
 // The actual implementation of a pin, not very convenient to use because it
 // requires the actual parameters of the pin to be passed as template
