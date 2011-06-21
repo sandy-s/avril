@@ -21,9 +21,8 @@ BUILD_ROOT     = build/
 BUILD_DIR      = $(BUILD_ROOT)$(TARGET)/
 PROGRAMMER     = avrispmkII
 
-MCU            = $(MCU_NAME)
-DMCU           = $(subst atmega, m, $(MCU_NAME))
-MCU_DEFINE     = $(shell echo $(MCU_NAME) | tr a-z A-Z)
+DMCU_           = $(subst atmega,m,$(MCU))
+DMCU           = $(subst attiny,t,$(DMCU_))
 F_CPU          = 20000000
 
 VPATH          = $(PACKAGES)
@@ -51,7 +50,7 @@ CAT            = cat
 
 CPPFLAGS      = -mmcu=$(MCU) -DF_CPU=$(F_CPU) -I. \
 			-g -Os -Wall \
-			-ffunction-sections -fdata-sections -D$(MCU_DEFINE) \
+			-ffunction-sections -fdata-sections \
 			-DSERIAL_RX_0 $(EXTRA_DEFINES) -fno-move-loop-invariants \
 			-mcall-prologues
 CXXFLAGS      = -fno-exceptions
