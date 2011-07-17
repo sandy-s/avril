@@ -43,27 +43,38 @@ class BufferedDisplay {
     width = Lcd::lcd_width,
     height = Lcd::lcd_height,
     lcd_buffer_size = width * height,
-    lcd_buffer_size_wrap = width * height - 1
   };
 
   BufferedDisplay() { }
 
   static void Init() {
-    memset(local_, ' ', lcd_buffer_size);
+    Clear();
     memset(remote_, '?', lcd_buffer_size);
+    scan_position_ = 0;
+    scan_row_ = 0;
+    scan_column_ = 0;
     scan_position_last_write_ = 255;
     cursor_position_ = 255;
     blink_ = 0;
   }
+  
+  static char* line_buffer(uint8_t line) {
+    return static_cast<char*>(
+        static_cast<void*>(local_ + U8U8Mul(line, width)));
+  }
 
   static void Print(uint8_t line, const char* text) {
     uint8_t row = width;
-    uint8_t* destination = local_ + (line << Log2<width>::value);
+    char* destination = line_buffer(line);
     while (*text && row) {
       *destination++ = *text;
       ++text;
       --row;
     }
+  }
+  
+  static void Clear() {
+    memset(local_, ' ', lcd_buffer_size);
   }
 
   // Use kLcdNoCursor (255) or any other value outside of the screen to hide.
@@ -121,34 +132,42 @@ class BufferedDisplay {
       // There is a character to transmit!
       // If the new character to transmit is just after the previous one, and on
       // the same line, we're good, we don't need to reposition the cursor.
-      if ((scan_position_ == scan_position_last_write_ + 1) &&
-          (scan_position_ & (width - 1))) {
+      if ((scan_position_ == scan_position_last_write_ + 1) && scan_column_) {
         // We use overwrite because we have checked before that there is
         // enough room in the buffer.
         Lcd::WriteData(character);
       } else {
         // The character to transmit is at a different position, we need to move
         // the cursor, and determine the cursor move command argument.
-        Lcd::MoveCursor(
-            scan_position_ >> Log2<width>::value,
-            scan_position_ & (width - 1));
+        Lcd::MoveCursor(scan_row_, scan_column_);
         Lcd::WriteData(character);
       }
       // We can now assume that the remote display will be updated.
       remote_[scan_position_] = character;
       scan_position_last_write_ = scan_position_;
     }
-    scan_position_ = (scan_position_ + 1) & lcd_buffer_size_wrap;
+    ++scan_column_;
+    ++scan_position_;
+    if (scan_column_ == width) {
+      scan_column_ = 0;
+      ++scan_row_;
+      if (scan_row_ == height) {
+        scan_row_ = 0;
+        scan_position_ = 0;
+      }
+    }
   }
 
  private:
   // Character pages storing what the display currently shows (remote), and
   // what it ought to show (local).
-  static uint8_t local_[width * height];
+  static uint8_t local_[width * height + 1];
   static uint8_t remote_[width * height];
 
   // Position of the last character being transmitted.
   static uint8_t scan_position_;
+  static uint8_t scan_row_;
+  static uint8_t scan_column_;
   static uint8_t scan_position_last_write_;
   static uint8_t blink_;
   static uint8_t previous_blink_counter_;
@@ -161,7 +180,7 @@ class BufferedDisplay {
 
 /* static */
 template<typename Lcd>
-uint8_t BufferedDisplay<Lcd>::local_[width * height];
+uint8_t BufferedDisplay<Lcd>::local_[width * height + 1];
 
 /* static */
 template<typename Lcd>
@@ -170,6 +189,14 @@ uint8_t BufferedDisplay<Lcd>::remote_[width * height];
 /* static */
 template<typename Lcd>
 uint8_t BufferedDisplay<Lcd>::scan_position_;
+
+/* static */
+template<typename Lcd>
+uint8_t BufferedDisplay<Lcd>::scan_row_;
+
+/* static */
+template<typename Lcd>
+uint8_t BufferedDisplay<Lcd>::scan_column_;
 
 /* static */
 template<typename Lcd>

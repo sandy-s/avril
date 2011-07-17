@@ -27,13 +27,15 @@ F_CPU          = 20000000
 
 VPATH          = $(PACKAGES)
 CC_FILES       = $(notdir $(wildcard $(patsubst %,%/*.cc,$(PACKAGES))))
+C_FILES        = $(notdir $(wildcard $(patsubst %,%/*.c,$(PACKAGES))))
 AS_FILES       = $(notdir $(wildcard $(patsubst %,%/*.as,$(PACKAGES))))
-OBJ_FILES      = $(CC_FILES:.cc=.o) $(AS_FILES:.S=.o)
+OBJ_FILES      = $(CC_FILES:.cc=.o) $(C_FILES:.c=.o) $(AS_FILES:.S=.o)
 OBJS           = $(patsubst %,$(BUILD_DIR)%,$(OBJ_FILES))
 DEPS           = $(OBJS:.o=.d)
 
-TARGET_HEX     = $(BUILD_DIR)$(TARGET).hex
+TARGET_BIN     = $(BUILD_DIR)$(TARGET).bin
 TARGET_ELF     = $(BUILD_DIR)$(TARGET).elf
+TARGET_HEX     = $(BUILD_DIR)$(TARGET).hex
 TARGETS        = $(BUILD_DIR)$(TARGET).*
 DEP_FILE       = $(BUILD_DIR)depends.mk
 
@@ -48,14 +50,20 @@ AVRDUDE        = $(AVRLIB_TOOLS_PATH)avrdude
 REMOVE         = rm -f
 CAT            = cat
 
-CPPFLAGS      = -mmcu=$(MCU) -DF_CPU=$(F_CPU) -I. \
+CPPFLAGS      = -mmcu=$(MCU) -I. \
 			-g -Os -Wall \
-			-ffunction-sections -fdata-sections \
-			-DSERIAL_RX_0 $(EXTRA_DEFINES) -fno-move-loop-invariants \
+			-DF_CPU=$(F_CPU) \
+			-fdata-sections \
+			-ffunction-sections \
+			-fno-move-loop-invariants \
+			-fshort-enums \
+			$(EXTRA_DEFINES) \
+			$(MMC_CONFIG) \
+			-DSERIAL_RX_0 \
 			-mcall-prologues
 CXXFLAGS      = -fno-exceptions
 ASFLAGS       = -mmcu=$(MCU) -I. -x assembler-with-cpp
-LDFLAGS       = -mmcu=$(MCU) -lm -Wl,--gc-sections -Os
+LDFLAGS       = -mmcu=$(MCU) -lm -Os -Wl,--gc-sections$(EXTRA_LD_FLAGS)
 
 # ------------------------------------------------------------------------------
 # Source compiling
@@ -64,11 +72,17 @@ LDFLAGS       = -mmcu=$(MCU) -lm -Wl,--gc-sections -Os
 $(BUILD_DIR)%.o: %.cc
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $< -o $@
 
+$(BUILD_DIR)%.o: %.c
+	$(CC) -c $(CPPFLAGS) $(CXXFLAGS) $< -o $@
+
 $(BUILD_DIR)%.o: %.s
 	$(CC) -c $(CPPFLAGS) $(ASFLAGS) $< -o $@
 
 $(BUILD_DIR)%.d: %.cc
 	$(CXX) -MM $(CPPFLAGS) $(CXXFLAGS) $< -MF $@ -MT $(@:.d=.o)
+
+$(BUILD_DIR)%.d: %.c
+	$(CC) -MM $(CPPFLAGS) $(CXXFLAGS) $< -MF $@ -MT $(@:.d=.o)
 
 $(BUILD_DIR)%.d: %.s
 	$(CC) -MM $(CPPFLAGS) $(ASFLAGS) $< -MF $@ -MT $(@:.d=.o)
@@ -80,6 +94,9 @@ $(BUILD_DIR)%.d: %.s
 
 $(BUILD_DIR)%.hex: $(BUILD_DIR)%.elf
 	$(OBJCOPY) -O ihex -R .eeprom $< $@
+
+$(BUILD_DIR)%.bin: $(BUILD_DIR)%.elf
+	$(OBJCOPY) -O binary -R .eeprom $< $@
 
 $(BUILD_DIR)%.eep: $(BUILD_DIR)%.elf
 	-$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" \
@@ -115,6 +132,8 @@ $(TARGET_ELF):  $(OBJS)
 $(DEP_FILE):  $(BUILD_DIR) $(DEPS)
 		cat $(DEPS) > $(DEP_FILE)
 
+bin:	$(TARGET_BIN)
+
 upload:    $(TARGET_HEX)
 		$(AVRDUDE) $(AVRDUDE_COM_OPTS) $(AVRDUDE_ISP_OPTS) \
 			-U flash:w:$(TARGET_HEX):i -U lock:w:0x$(LOCK):m
@@ -135,7 +154,7 @@ size: $(TARGET).size
 		cat $(TARGET).size | awk '{ print $$1+$$2 }' | tail -n1 | figlet | cowsay -n -f moose
 
 ramsize: $(TARGET).size
-		cat $(TARGET).size | awk '{ print $$3 }' | tail -n1 | figlet | cowsay -n -f small
+		cat $(TARGET).size | awk '{ print $$2+$$3 }' | tail -n1 | figlet | cowsay -n -f small
 
 size_report:  build/$(TARGET)/$(TARGET).lss build/$(TARGET)/$(TARGET).top_symbols
 
@@ -150,10 +169,10 @@ include $(DEP_FILE)
 HEX2SYSEX = python tools/hex2sysex/hex2sysex.py
 
 $(BUILD_DIR)%.mid: $(BUILD_DIR)%.hex
-	$(HEX2SYSEX) -o $@ $<
+	$(HEX2SYSEX) $(SYSEX_FLAGS) -o $@ $<
 
 $(BUILD_DIR)%.syx: $(BUILD_DIR)%.hex
-	$(HEX2SYSEX) --syx -o $@ $<
+	$(HEX2SYSEX) $(SYSEX_FLAGS) --syx -o $@ $<
 
 midi: $(BUILD_DIR)$(TARGET).mid
 
@@ -184,6 +203,9 @@ publish: $(BUILD_DIR)$(TARGET).mid $(BUILD_DIR)$(TARGET).hex
 # ------------------------------------------------------------------------------
 # Set fuses
 # ------------------------------------------------------------------------------
+
+terminal:
+		$(AVRDUDE) $(AVRDUDE_COM_OPTS) $(AVRDUDE_ISP_OPTS) -e -tuF
 
 fuses:
 		$(AVRDUDE) $(AVRDUDE_COM_OPTS) $(AVRDUDE_ISP_OPTS) -e -u \

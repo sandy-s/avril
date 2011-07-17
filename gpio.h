@@ -86,6 +86,17 @@ typedef Port<PINCRegister, PORTCRegister, DDRCRegister> PortC;
 typedef Port<PINDRegister, PORTDRegister, DDRDRegister> PortD;
 #endif
 
+#if defined(ATMEGA164P) || defined(ATMEGA324P) || defined(ATMEGA644P) || defined(ATMEGA1284P)
+
+IORegister(DDRA);
+IORegister(PORTA);
+IORegister(PINA);
+typedef Port<PINARegister, PORTARegister, DDRARegister> PortA;
+
+#endif
+
+
+
 // The actual implementation of a pin, not very convenient to use because it
 // requires the actual parameters of the pin to be passed as template
 // arguments.
@@ -162,7 +173,6 @@ struct Gpio {
   static uint8_t value() { return Impl::value(); }
 };
 
-
 struct DummyGpio {
   static void High() { }
   static void Low() { }
@@ -172,6 +182,15 @@ struct DummyGpio {
   static uint8_t value() { return 0; }
 };
 
+template<typename Gpio>
+struct Inverter {
+  static void High() { Gpio::Low(); }
+  static void Low() { Gpio::High(); }
+  static void set_mode(uint8_t mode) { Gpio::set_mode(mode); }
+  static void set_value(uint8_t value) { Gpio::set_value(!value); }
+  static void set_analog_value(uint8_t value) { Gpio::set_analog_value(~value); }
+  static uint8_t value() { return !Gpio::value(); }
+};
 
 template<typename gpio>
 struct DigitalInput {
@@ -235,9 +254,9 @@ typedef Gpio<PortB, 4> SpiMISO;
 typedef Gpio<PortB, 3> SpiMOSI;
 typedef Gpio<PortB, 2> SpiSS;
 
-typedef Gpio<PortD, 4> UartSpiXCK;
-typedef Gpio<PortD, 1> UartSpiTX;
-typedef Gpio<PortD, 0> UartSpiRX;
+typedef Gpio<PortD, 4> UartSpi0XCK;
+typedef Gpio<PortD, 1> UartSpi0TX;
+typedef Gpio<PortD, 0> UartSpi0RX;
 
 #define HAS_USART0
 
@@ -277,9 +296,13 @@ typedef Gpio<PortB, 6> SpiMISO;
 typedef Gpio<PortB, 5> SpiMOSI;
 typedef Gpio<PortB, 4> SpiSS;
 
-typedef Gpio<PortB, 0> UartSpiXCK;
-typedef Gpio<PortD, 1> UartSpiTX;
-typedef Gpio<PortD, 0> UartSpiRX;
+typedef Gpio<PortB, 0> UartSpi0XCK;
+typedef Gpio<PortD, 1> UartSpi0TX;
+typedef Gpio<PortD, 0> UartSpi0RX;
+
+typedef Gpio<PortD, 4> UartSpi1XCK;
+typedef Gpio<PortD, 3> UartSpi1TX;
+typedef Gpio<PortD, 2> UartSpi1RX;
 
 #define HAS_USART0
 #define HAS_USART1
