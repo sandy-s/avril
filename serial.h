@@ -55,6 +55,12 @@ namespace avrlib {
 const uint8_t kSerialOutputBufferSize = 32;
 const uint8_t kSerialInputBufferSize = 32;
 
+enum UsartMode {
+    USART_ASYNCHRONOUS = 0,
+    USART_SYNCHRONOUS = 1,
+    USART_MASTER_SPI = 3
+};
+
 // Low-level interface to the low-level UART registers. Several specializations
 // may be declared for each serial port. This class could theoretically be used
 // for non-blocking write or polling reads.
@@ -64,6 +70,7 @@ template<typename TxEnableBit, typename TxReadyBit,
          typename TurboBit,
          typename PrescalerRegisterH, typename PrescalerRegisterL,
          typename DataRegister,
+         typename ControlRegisterC,
          uint8_t input_buffer_size_,
          uint8_t output_buffer_size_>
 struct SerialPort {
@@ -78,6 +85,9 @@ struct SerialPort {
   static inline void set_prescaler(uint16_t value) {
     *PrescalerRegisterH::ptr() = value >> 8;
     *PrescalerRegisterL::ptr() = value;
+  }
+  static inline void set_usart_mode(UsartMode mode) {
+      *ControlRegisterC::ptr() = (*ControlRegisterC::ptr() & 0x3f) | (mode << 6);
   }
   static inline uint8_t tx_ready() { return TxReadyBit::value(); }
   static inline uint8_t rx_ready() { return RxReadyBit::value(); }
@@ -198,7 +208,7 @@ struct SerialImplementation<SerialPort, BUFFERED, BUFFERED> {
 };
 
 template<typename SerialPort, uint32_t baud_rate, PortMode input = POLLED,
-         PortMode output = POLLED, bool turbo = false>
+         PortMode output = POLLED, bool turbo = false, UsartMode usart_mode = USART_ASYNCHRONOUS>
 struct Serial {
   typedef SerialImplementation<SerialPort, input, output> Impl;
   typedef uint8_t Value;
@@ -209,6 +219,7 @@ struct Serial {
   }
   template<uint32_t new_baud_rate>
   static inline void Init() {
+    SerialPort::set_usart_mode(usart_mode);
     if (turbo) {
       SerialPort::Turbo::set();
       uint16_t prescaler = F_CPU / (8L * baud_rate) - 1;
@@ -263,6 +274,7 @@ typedef SerialPort<
     UBRR0HRegister,
     UBRR0LRegister,
     UDR0Register,
+    UCSR0CRegister,
     kSerialOutputBufferSize,
     kSerialInputBufferSize> SerialPort0;
 
@@ -289,6 +301,7 @@ typedef SerialPort<
     UBRR1HRegister,
     UBRR1LRegister,
     UDR1Register,
+    UCSR1CRegister,
     kSerialOutputBufferSize,
     kSerialInputBufferSize> SerialPort1;
 
