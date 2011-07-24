@@ -86,7 +86,7 @@ typedef Port<PINCRegister, PORTCRegister, DDRCRegister> PortC;
 typedef Port<PINDRegister, PORTDRegister, DDRDRegister> PortD;
 #endif
 
-#if defined(ATMEGA164P) || defined(ATMEGA324P) || defined(ATMEGA644P) || defined(ATMEGA1284P)
+#if defined(__AVR_ATmega164P__) || defined(__AVR_ATmega324P__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega1284P__)
 
 IORegister(DDRA);
 IORegister(PORTA);
@@ -310,6 +310,19 @@ typedef Gpio<PortD, 2> UartSpi1RX;
 #ifdef __AVR_ATmega1284P__
 #define HAS_TIMER3
 #endif
+
+#elif defined(__AVR_ATmega16U4__) || defined(__AVR_ATmega32U4__)
+
+typedef Gpio<PortB, 1> SpiSCK;
+typedef Gpio<PortB, 3> SpiMISO;
+typedef Gpio<PortB, 2> SpiMOSI;
+typedef Gpio<PortB, 0> SpiSS;
+
+typedef Gpio<PortD, 5> UartSpi1XCK;
+typedef Gpio<PortD, 3> UartSpi1TX;
+typedef Gpio<PortD, 2> UartSpi1RX;
+
+#define HAS_USART1
 
 #endif
 
