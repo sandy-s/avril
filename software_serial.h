@@ -35,6 +35,7 @@
 #ifndef AVRLIB_SOFTWARE_SERIAL_H_
 #define AVRLIB_SOFTWARE_SERIAL_H_
 
+#include <util/delay_basic.h>
 #include "avrlib/avrlib.h"
 #include "avrlib/gpio.h"
 #include "avrlib/ring_buffer.h"
@@ -52,7 +53,7 @@ enum SoftwareSerialState {
 // timer_rate: frequency (Hz) of the timer which will drive the output.
 // baud_rate: target baud rate. must be a divisor of timer_rate.
 // buffer_size: prefered buffer size.
-template<typename TxPin, uint16_t timer_rate, uint16_t baud_rate,
+template<typename TxPin, uint16_t timer_rate, uint32_t baud_rate,
           uint8_t buffer_size_>
 class BufferedSoftwareSerialOutput {
   typedef BufferedSoftwareSerialOutput<TxPin, timer_rate,
@@ -122,22 +123,22 @@ class BufferedSoftwareSerialOutput {
   DISALLOW_COPY_AND_ASSIGN(BufferedSoftwareSerialOutput);
 };
 
-template<typename TxPin, uint16_t timer_rate, uint16_t baud_rate,
+template<typename TxPin, uint16_t timer_rate, uint32_t baud_rate,
           uint8_t buffer_size_>
 uint8_t BufferedSoftwareSerialOutput<TxPin, timer_rate, baud_rate,
                                      buffer_size_>::prescaler_counter_;
 
-template<typename TxPin, uint16_t timer_rate, uint16_t baud_rate,
+template<typename TxPin, uint16_t timer_rate, uint32_t baud_rate,
           uint8_t buffer_size_>
 uint8_t BufferedSoftwareSerialOutput<TxPin, timer_rate, baud_rate,
                                      buffer_size_>::tx_symbol_mask_;
 
-template<typename TxPin, uint16_t timer_rate, uint16_t baud_rate,
+template<typename TxPin, uint16_t timer_rate, uint32_t baud_rate,
           uint8_t buffer_size_>
 uint8_t BufferedSoftwareSerialOutput<TxPin, timer_rate, baud_rate,
                                      buffer_size_>::tx_state_;
 
-template<typename TxPin, uint16_t timer_rate, uint16_t baud_rate,
+template<typename TxPin, uint16_t timer_rate, uint32_t baud_rate,
           uint8_t buffer_size_>
 uint8_t BufferedSoftwareSerialOutput<TxPin, timer_rate, baud_rate,
                                      buffer_size_>::tx_byte_;
@@ -145,44 +146,33 @@ uint8_t BufferedSoftwareSerialOutput<TxPin, timer_rate, baud_rate,
 
 // Parameters:
 // TxPin: digital pin used for transmission.
-// baud_rate: target baud rate. must be a divisor of timer_rate.
+// baud_rate: target baud rate
 // Following code from NewSoftSerial, Copyright (c) 2006 David A. Mellis.
-template<typename TxPin, uint16_t baud_rate>
+// For proper timing delay should be much greater than overhead
+// So for F_CPU=1MHz baud rates more than 19200 are questionable
+template<typename TxPin, uint32_t baud_rate>
 struct SoftwareSerialOutput {
   static void Init() {
     TxPin::set_mode(DIGITAL_OUTPUT);
+    TxPin::High();
   }
+  static const uint16_t delay_iterations = F_CPU / baud_rate / 4; // 4 CPU cycles per iteration
   static void Write(uint8_t tx_byte) {
     uint8_t oldSREG = SREG;
     cli();
-
-    uint16_t delay = (F_CPU / baud_rate) / 7;
-    uint16_t tx_delay = delay - 5;
     TxPin::Low();
-    TunedDelay(delay);
-    for (uint8_t mask = 1; mask; mask <<= 1) {
-      TxPin::set_value(tx_byte & mask);
-      TunedDelay(tx_delay);
+    _delay_loop_2(delay_iterations - 2); // correction for overhead
+    for (uint8_t i = 8; i; i--) {
+      TxPin::set_value(tx_byte & 1);
+      _delay_loop_2(delay_iterations - 2);
+      tx_byte >>= 1;
     }
     TxPin::High();
     SREG = oldSREG;
-    TunedDelay(delay);
-  }
-
-  static inline void TunedDelay(uint16_t delay) {
-    uint8_t tmp = 0;
-    asm volatile(
-      "sbiw %0, 0x01"  "\n\t"
-      "ldi %1, 0xff"   "\n\t"
-      "cpi %A0, 0xff"  "\n\t"
-      "cpc %B0, %1"    "\n\t"
-      "brne .-10"      "\n\t"
-      : "+r" (delay), "+a" (tmp)
-      : "0" (delay)
-    );
+    _delay_loop_2(delay_iterations);
   }
 };
 
 }  // namespace avrlib
 
-#endif AVRLIB_SOFTWARE_SERIAL_H_
+#endif // AVRLIB_SOFTWARE_SERIAL_H_
