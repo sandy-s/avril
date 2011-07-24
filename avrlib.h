@@ -50,7 +50,7 @@ enum DigitalValue {
 
 #define IORegister16(reg) struct reg##Register { \
   static volatile uint16_t* ptr() { return &reg; } \
-  reg##Register& operator=(const uint16_t& value) { *ptr() = value; } \
+  reg##Register& operator=(const uint16_t& value) { *ptr() = value; return *this; } \
   uint16_t operator()(const uint16_t& value) { return *ptr(); } \
 };
 
