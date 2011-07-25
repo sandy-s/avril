@@ -20,7 +20,7 @@
 #ifndef AVRLIB_TIME_H_
 #define AVRLIB_TIME_H_
 
-#include <avr/delay.h>
+#include <util/delay.h>
 
 #include "avrlib/base.h"
 
